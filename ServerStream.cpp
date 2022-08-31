@@ -1,6 +1,10 @@
 #include "ServerStream.h"
+#include "TaskThread.cpp"
+
 
 using namespace std;
+
+extern unordered_map<int, User *> handlerToUser;
 
 ServerStream::ServerStream(TaskThread *pMsgQueue)
 {

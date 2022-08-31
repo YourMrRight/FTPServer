@@ -8,25 +8,18 @@
 
 User::User()
 {
-	this->usr_name_ = new char[USR_INFO_SIZE];
-	this->usr_pwd_ = new char[USR_INFO_SIZE];
-	this->current_dir_ = new char[USR_INFO_SIZE];
 	usr_rights_ = 0;
-	this->port = USE_DEFAULT_PORT;
-	this->ip = new char[USR_INFO_SIZE];
-	ACE_OS::strcpy(current_dir_, DEFAULT_DIR);
-	ACE_OS::strcpy(ip, USER_DEFAULT_IP);
+	port = USE_DEFAULT_PORT;
+	current_dir_ = DEFAULT_DIR;
+	port = DEFAULT_PORT;
+	ip = DEFAULT_IP;
 }
 
 User::~User()
 {
-	delete[] usr_name_;
-	delete[] this->usr_pwd_;
-	delete[] this->ip;
-	delete[] this->current_dir_;
 }
 
-char* User::getpwd(char *u_name)const
+string User::getpwd(string &u_name)const
 {
 	std::ifstream ifst;
 	ifst.open("Userinfo.txt");
@@ -35,7 +28,7 @@ char* User::getpwd(char *u_name)const
 	int exist = 1;
 	while (ifst.getline(usrname, USR_INFO_SIZE))
 	{
-		if (strcmp(u_name, usrname) == 0)
+		if (u_name == usrname)
 		{
 			ifst.getline(usrpwd, USR_INFO_SIZE);
 			exist = 0;
@@ -46,7 +39,7 @@ char* User::getpwd(char *u_name)const
 	{
 		usrpwd = nullptr;
 	}
-	return usrpwd;
+	return string(usrpwd);
 }
 
 void User::setStatus(int stat)
@@ -59,24 +52,24 @@ int User::getStatus()const
 	return this->usr_rights_;
 }
 
-char* User::getUserName() const
+string User::getUserName() const
 {
 	return this->usr_name_;
 }
 
-void User::setUserName(char* name)
+void User::setUserName(string &name)
 {
-	ACE_OS::strcpy(this->usr_name_ ,name);
+	this->usr_name_ = name;
 }
 
-char* User::getCurrentDir() const
+string User::getCurrentDir() const
 {
 	return this->current_dir_;
 }
 
-void User::setCurrentDir(char* dir)
+void User::setCurrentDir(string &dir)
 {
-	ACE_OS::strcpy(this->current_dir_, dir);	
+	this->current_dir_ = dir;
 }
 
 int User::getPort() const
@@ -89,12 +82,12 @@ void User::setPort(int p)
 	this->port = p;
 }
 
-char* User::getIP() const
+string User::getIP() const
 {
 	return this->ip;
 }
 
-void User::setIP(char* IP)
+void User::setIP(string& IP)
 {
-	ACE_OS::strcpy(this->ip,IP);
+	this->ip = IP
 }
