@@ -21,7 +21,7 @@ class Server: public ACE_Event_Handler
 private:
     /* data */
     ACE_INET_Addr m_Svr_addr;
-    ACE_SOCK_Acceptor m_Svr_aceept;
+    ACE_SOCK_Acceptor m_Svr_accept;
 public:
     Server(int port,char* ip);
     virtual ~Server();

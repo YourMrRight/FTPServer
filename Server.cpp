@@ -42,10 +42,10 @@ Server::~Server()
 
 bool Server::open()
 {
-    if (-1 == m_Svr_aceept.open(m_Svr_addr,1))
+    if (-1 == m_Svr_accept.open(m_Svr_addr,1))
     {
         ACE_DEBUG((LM_ERROR,ACE_TEXT("failed to accept\n")));
-        m_Svr_aceept.close();
+        m_Svr_accept.close();
         return false;
     }
     return true;
@@ -54,12 +54,12 @@ bool Server::open()
 void Server::close()
 {
     ACE_Reactor::instance()->remove_handler(this, ACE_Event_Handler::ACCEPT_MASK);
-    m_Svr_aceept.close();
+    m_Svr_accept.close();
 }
 
 ACE_HANDLE Server::get_handle(void) const 
 {
-    return m_Svr_aceept.get_handle();   
+    return m_Svr_accept.get_handle();   
 }
 
 int Server::handle_input(ACE_HANDLE handle)
@@ -69,7 +69,7 @@ int Server::handle_input(ACE_HANDLE handle)
     {
         g_StreamPool.push_back(stream);//暂时存储全局变量用于内存管理,优化可增加一个连接管理类管理连接通道
     }
-    if (m_Svr_aceept.accept(stream->get_stream()) == -1)  //绑定通道
+    if (m_Svr_accept.accept(stream->get_stream()) == -1)  //绑定通道
     {  
         printf("accept client fail\n");  
         return -1;  

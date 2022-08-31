@@ -35,7 +35,6 @@ int ServerStream::handle_input(ACE_HANDLE fd)
     }
     ACE_Data_Block *Data_Block = new ACE_Data_Block; //线程做释放
     ACE_HANDLE cli_io = get_handle();
-
     Message.setIOHandle(&cli_io);
     ACE_OS::memcpy(Message.Data, strBuffer, sizeof(strBuffer)); //传的data可带length信息来适配消息大小
 

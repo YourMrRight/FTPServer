@@ -3,7 +3,7 @@
 #pragma once
 
 #define USR_INFO_SIZE 50
-#define USE_DEFAULT_PORT 5011
+#define USE_DEFAULT_PORT 20
 #define USER_DEFAULT_IP "127.0.0.1"
 class User
 {
