@@ -19,7 +19,7 @@ User::~User()
 {
 }
 
-string User::getpwd(string &u_name)const
+string User::getpwd(string u_name)const
 {
 	std::ifstream ifst;
 	ifst.open("Userinfo.txt");
@@ -28,7 +28,7 @@ string User::getpwd(string &u_name)const
 	int exist = 1;
 	while (ifst.getline(usrname, USR_INFO_SIZE))
 	{
-		if (u_name == usrname)
+		if (u_name == string(usrname))
 		{
 			ifst.getline(usrpwd, USR_INFO_SIZE);
 			exist = 0;
@@ -57,7 +57,7 @@ string User::getUserName() const
 	return this->usr_name_;
 }
 
-void User::setUserName(string &name)
+void User::setUserName(string name)
 {
 	this->usr_name_ = name;
 }
@@ -67,7 +67,7 @@ string User::getCurrentDir() const
 	return this->current_dir_;
 }
 
-void User::setCurrentDir(string &dir)
+void User::setCurrentDir(string dir)
 {
 	this->current_dir_ = dir;
 }
@@ -87,7 +87,7 @@ string User::getIP() const
 	return this->ip;
 }
 
-void User::setIP(string& IP)
+void User::setIP(string IP)
 {
-	this->ip = IP
+	this->ip = IP;
 }

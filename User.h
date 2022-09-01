@@ -21,17 +21,17 @@ private:
 public:
 	User();
 	~User();
-	string getpwd(string &) const;
+	string getpwd(string) const;
 	void setStatus(int);
 	int getStatus() const;
 	string getUserName() const;
-	void setUserName(string &username);
+	void setUserName(string username);
 	string getCurrentDir() const;
-	void setCurrentDir(string &dir);
+	void setCurrentDir(string dir);
 	int getPort()const;
 	void setPort(int p);
 	string getIP()const;
-	void setIP(string &IP);
+	void setIP(string IP);
 };
 
 #endif

@@ -12,10 +12,22 @@ using namespace std;
 class TaskThread : public ACE_Task<ACE_MT_SYNCH>
 {
     virtual int svc(void);
-    int processCmd(ACE_SOCK_Stream &Stream, string &cmd); 
+    int processCmd(ACE_SOCK_Stream Stream, string cmd); 
+    int isUserLoginValid(ACE_SOCK_STREAM &Stream);
 public:
     int processUSER(ACE_SOCK_STREAM &Stream, string &cmd);
-    
+    int processPASS(ACE_SOCK_Stream &Stream, string &cmd);
+    int processSYST(ACE_SOCK_Stream &Stream, string &cmd);
+    int processPASV(ACE_SOCK_Stream &Stream, string &cmd);
+    int processPORT(ACE_SOCK_Stream &Stream, string &cmd);
+    int processCWD(ACE_SOCK_Stream &Stream, string &cmd);
+    int processQUIT(ACE_SOCK_Stream &Stream);
+    int processRETR(ACE_SOCK_Stream &Stream, string &cmd);
+    int processLIST(ACE_SOCK_Stream &Stream, string &cmd);
+    int processSTOR(ACE_SOCK_Stream &Stream, string &cmd);
+    int processXPWD(ACE_SOCK_Stream &Stream, string &cmd);
+    int processAUTH(ACE_SOCK_Stream &Stream, string &cmd);
+    int processPWD(ACE_SOCK_Stream &Stream, string &cmd);
 };
 
 #endif

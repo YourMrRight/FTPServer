@@ -1,4 +1,5 @@
 #include "TaskThread.h"
+#include "Util.h"
 
 #include <unordered_map>
 #include <string>
@@ -7,398 +8,129 @@ using namespace std;
 
 unordered_map<int, User *> handlerToUser;
 extern list<ServerStream *> g_StreamPool;
-int TaskThread::processCmd(ACE_SOCK_Stream &Stream, string &cmd)
+int TaskThread::processCmd(ACE_SOCK_Stream Stream, string cmd)
 {
-    cout << Stream.get_handle() << endl;
     cout << "--------------" << cmd << "--------------" << endl;
     if (cmd.substr(0,4) == "USER")
     {
         if(processUSER(Stream, cmd)==-1){
             ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
+            return -1;
         }
     }else if (cmd.substr(0,4) == "PASS")
     {
-        string file_pwd = handlerToUser[Stream.get_handle()]->getpwd(handlerToUser[Stream.get_handle()]->getUserName());
-
-        char *password = cmd + 5;
-
-        char pwd_cmd[COMMAND_SIZE];
-
-        ACE_OS::strcpy(pwd_cmd, password);
-
-        int i;
-        for (i = 0; !isspace(pwd_cmd[i]); ++i)
-            ;
-        pwd_cmd[i] = 0;
-
-        if (ACE_OS::strcmp(file_pwd, pwd_cmd) == 0)
-        {
-            handlerToUser[Stream.get_handle()]->setStatus(1);
-
-            Stream.send(LOGIN_SUCCESS, ACE_OS::strlen(LOGIN_SUCCESS));
+        if(processPASS(Stream, cmd)==-1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
+            return -1;
         }
-        else
-        {
-            Stream.send(USR_LOGI_FAILED, ACE_OS::strlen(USR_LOGI_FAILED));
-            handlerToUser[Stream.get_handle()]->setStatus(0);
-            ACE_DEBUG((LM_DEBUG, "user %s login failed! \n", handlerToUser[Stream.get_handle()]->getUserName()));
-            if (handlerToUser.find(Stream.get_handle()) != handlerToUser.end())
-            {
-                User *del = handlerToUser[Stream.get_handle()];
-                handlerToUser.erase(Stream.get_handle());
-                delete del;
-            }
+    }else if (cmd.substr(0,4) == "SYST"){
+        if(this->isUserLoginValid(Stream) == -1){
+            return -1;
+        }
+        if(processSYST(Stream, cmd)==-1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
         }
     }
-    else if (cmd[0] == 'S' && cmd[1] == 'Y' && handlerToUser.find(Stream.get_handle()) != handlerToUser.end() &&
-             handlerToUser[Stream.get_handle()]->getStatus() == 0)
+    else if (cmd.substr(0,3) == "CWD")
     {
-        Stream.send(SYST_CMD, ACE_OS::strlen(SYST_CMD));
-    }
-    else if (cmd[0] == 'C' && cmd[1] == 'W' && handlerToUser.find(Stream.get_handle()) != handlerToUser.end())
-    {
-        if (handlerToUser[Stream.get_handle()]->getStatus() == 0)
-        {
-            Stream.send(USR_UNLOGIN, ACE_OS::strlen(USR_UNLOGIN));
-            return 0;
+        if(this->isUserLoginValid(Stream) == -1){
+            return -1;
         }
-        User *currentUser = handlerToUser[Stream.get_handle()];
-        char *dir_cmd = cmd + 4;
-        char dir_info[COMMAND_SIZE];
-        ACE_OS::strcpy(dir_info, dir_cmd);
-        // currentUser->setCurrentDir(dir_cmd);
-        char *upper_flag = "..";
-        int i;
-        for (i = 0; !isspace(dir_info[i]); i++)
-            ;
-        dir_info[i] = 0;
-        if (ACE_OS::strcmp(dir_info, upper_flag) == 0)
-        {
-            if (ACE_OS::strcmp(currentUser->getCurrentDir(), DEFAULT_DIR) == 0)
-            {
-                Stream.send(CWD_SUCCESS, ACE_OS::strlen(CWD_SUCCESS));
-            }
-            else
-            {
-                int length = ACE_OS::strlen(currentUser->getCurrentDir()) - 2;
-                while (currentUser->getCurrentDir()[length] != '/' && currentUser->getCurrentDir()[length] != '\\' && length >= 0)
-                {
-                    length--;
-                }
-                currentUser->getCurrentDir()[length] = 0;
-                Stream.send(CWD_SUCCESS, ACE_OS::strlen(CWD_SUCCESS));
-            }
-            ACE_DEBUG((LM_DEBUG, "user %s modified directory!\n", currentUser->getUserName()));
-        }
-        else
-        {
-            string str(currentUser->getCurrentDir());
+        if(this->processCWD(Stream, cmd)==-1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
         }
     }
-    else if (cmd[0] == 'Q' && cmd[1] == 'U')
+    else if (cmd.substr(0,4) == "QUIT")
     {
-        // if user have not logged in
-        if (handlerToUser.find(Stream.get_handle()) == handlerToUser.end() || handlerToUser[Stream.get_handle()]->getStatus() == 0)
-        {
-            Stream.send(USR_UNLOGIN, ACE_OS::strlen(USR_UNLOGIN), 0);
+        if(this->isUserLoginValid(Stream) == -1){
+            return -1;
         }
-        else
-        {
-            char *q_cmd = "221\n";
-            Stream.send(q_cmd, ACE_OS::strlen(q_cmd), 0);
-            if (handlerToUser.find(Stream.get_handle()) != handlerToUser.end())
-            {
-                User *del = handlerToUser[Stream.get_handle()];
-                handlerToUser.erase(Stream.get_handle());
-                delete del;
-            }
+        if(processQUIT(Stream)==-1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
         }
     }
-    else if (cmd[0] == 'R' && cmd[1] == 'E')
+    else if (cmd.substr(0,4) == "RETR")
     {
-        if (handlerToUser.find(Stream.get_handle()) == handlerToUser.end() || handlerToUser[Stream.get_handle()]->getStatus() == 0)
-        {
-            Stream.send(USR_UNLOGIN, ACE_OS::strlen(USR_UNLOGIN), 0);
-            return 0;
+        if(this->isUserLoginValid(Stream) == -1){
+            return -1;
         }
-        User *currentUser = handlerToUser[Stream.get_handle()];
-        char *file_name_ = cmd + 5;
-        char file_name[COMMAND_SIZE];
-        ACE_OS::strcpy(file_name, file_name_);
-        int len = ACE_OS::strlen(file_name);
-        string str(file_name);
-        char *ch_file_name = new char[COMMAND_SIZE];
-        ACE_OS::strcpy(ch_file_name, str.c_str());
-        FilesCtr fileCtr;
-        if (!fileCtr.fileExist(ch_file_name))
-        {
-            Stream.send(DIR_NOT_FIND, ACE_OS::strlen(DIR_NOT_FIND), 0);
-            return 0;
+        if(processRETR(Stream, cmd) == -1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
         }
-        else
-        {
-            FILE *fp;
-            fp = ACE_OS::fopen(ch_file_name, "rb");
-            if (fp == nullptr)
-            {
-                Stream.send(OPEN_FILE_FAILED, ACE_OS::strlen(OPEN_FILE_FAILED), 0);
-                return 0;
-            }
 
-            ACE_OS::fseek(fp, 0L, 2);
-            int len = ACE_OS::ftell(fp);
-            ACE_OS::fseek(fp, 0L, 0);
-
-            char *file_block = new char[FILE_DATA_BLOCK];
-            int read_len = ACE_OS::fread(file_block, 1, FILE_DATA_BLOCK, fp);
-            file_block[read_len] = 0;
-            int data_read = 1024;
-            ACE_DEBUG((LM_DEBUG, "opening file: %s\n", ch_file_name));
+    }else if (cmd.substr(0,4) == "LIST"){
+        if(this->isUserLoginValid(Stream)==-1){
+            return -1;
+        }
+        if(processLIST(Stream,cmd)==-1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
         }
     }
-    else if (cmd[0] == 'L' && cmd[1] == 'I')
+    else if (cmd.substr(0,4) == "PORT")
     {
-        if (handlerToUser.find(Stream.get_handle()) == handlerToUser.end() &&
-            handlerToUser[Stream.get_handle()]->getStatus() == 0)
-        {
-            Stream.send(USR_UNLOGIN, ACE_OS::strlen(USR_UNLOGIN), 0);
-            return 0;
+        if(this->isUserLoginValid(Stream)==-1){
+            return -1;
         }
-        Stream.send(OPEN_ASCII_MODE, ACE_OS::strlen(OPEN_ASCII_MODE), 0);
-        ACE_SOCK_Stream *data_stream = new ACE_SOCK_STREAM();
-        ACE_SOCK_Connector *data_conn = new ACE_SOCK_Connector();
-        ACE_INET_Addr *inet_addr = new ACE_INET_Addr();
-        User *currentUser = handlerToUser[Stream.get_handle()];
-        inet_addr->set(currentUser->getPort(), currentUser->getIP());
-        if (data_conn->connect(*data_stream, *inet_addr) == -1)
-        {
-            Stream.send(DATA_CONN_FAILED, ACE_OS::strlen(DATA_CONN_FAILED), 0);
-            return 0;
+        if( processPORT(Stream,cmd)==-1 ){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
         }
-        ACE_DIR *dir = ACE_OS::opendir(currentUser->getCurrentDir());
-        dirent *diren;
-        while ((diren = ACE_OS::readdir(dir)) != nullptr)
-        {
-            if (data_stream->send(diren->d_name, ACE_OS::strlen(diren->d_name), 0) == -1)
-            {
-                break;
-            }
-            data_stream->send("\n", 3, 0);
-        }
-        data_stream->close();
-        Stream.send(TRANS_COMPELETE, ACE_OS::strlen(TRANS_COMPELETE), 0);
-        delete data_conn;
-        delete data_stream;
-        delete inet_addr;
+
     }
-    else if (cmd[0] == 'P' && cmd[1] == 'O')
+    else if (cmd.substr(0,4) == "STOR")
     {
-        if (handlerToUser.find(Stream.get_handle()) == handlerToUser.end() || handlerToUser[Stream.get_handle()]->getStatus() == 0)
-        {
-            Stream.send(USR_UNLOGIN, ACE_OS::strlen(USR_UNLOGIN), 0);
-            return 0;
+        if(this->isUserLoginValid(Stream)==-1){
+            return -1;
         }
-        char *ip_cmd = cmd + 5;
-        char ip_addr[COMMAND_SIZE];
-        ACE_OS::strcpy(ip_addr, ip_cmd);
-
-        int i = 0;
-        for (; !isspace(ip_addr[i]); i++)
-            ;
-        ip_addr[i] = 0;
-
-        int port1 = 0;
-        int port2 = 0;
-        int comma_counter = 0;
-        int num_index = 0;
-        i--;
-
-        while (!(comma_counter == 1 && ip_addr[i] == ','))
-        {
-            if (ip_addr[i] == ',')
-            {
-                comma_counter++;
-                num_index = 0;
-            }
-            else // process number
-            {
-                double radix = 10;
-                if (comma_counter == 0)
-                {
-                    // the last segment of the ip address
-                    int curr_cha_number = ip_addr[i] - '0';
-
-                    port1 += int(curr_cha_number * pow(radix, num_index));
-
-                    num_index++;
-                }
-                else
-                {
-                    int curr_cha_number = ip_addr[i] - '0';
-                    port2 += int(curr_cha_number * pow(radix, num_index));
-                    num_index++;
-                }
-            }
-            i--;
+        if(processSTOR(Stream,cmd) == -1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
         }
-
-        int addr_len = ACE_OS::strlen(ip_addr);
-        for (int j = 0; j < addr_len; j++)
-            if (ip_addr[j] == ',')
-                ip_addr[j] = '.';
-        ip_addr[i] = 0;
-        handlerToUser[Stream.get_handle()]->setIP(ip_addr);
-
-        int port = port2 * 256 + port1;
-        handlerToUser[Stream.get_handle()]->setPort(port);
-        Stream.send(PORT_COMMAND_SUCCESS, ACE_OS::strlen(PORT_COMMAND_SUCCESS), 0);
-        ACE_DEBUG((LM_DEBUG, "user %s PORT command successful\n", handlerToUser[Stream.get_handle()]->getUserName()));
     }
-    else if (cmd[0] == 'S' && cmd[1] == 'T' && cmd[2] == 'O' && cmd[3] == 'R')
+    else if (cmd.substr(0,4) == "XPWD")
     {
-        if (handlerToUser.find(Stream.get_handle()) == handlerToUser.end() || handlerToUser[Stream.get_handle()]->getStatus() == 0)
-        {
-            Stream.send(USR_UNLOGIN, ACE_OS::strlen(USR_UNLOGIN), 0);
-            return 0;
+        if(this->isUserLoginValid(Stream)==-1){
+            return -1;
         }
-        User *user = handlerToUser[Stream.get_handle()];
-        Stream.send(OPEN_ASCII_MODE, ACE_OS::strlen(OPEN_ASCII_MODE), 0);
-        char *f_name_ = cmd + 5;
-        char *f_name = new char[COMMAND_SIZE];
-        ACE_OS::strcpy(f_name, f_name_);
-        int leng = ACE_OS::strlen(f_name);
-        f_name[leng - 2] = 0;
-
-        std::string file_path(user->getCurrentDir());
-        file_path.append(f_name);
-        char f_path[COMMAND_SIZE];
-        ACE_OS::strcpy(f_path, file_path.c_str());
-
-        FILE *fp;
-        fp = ACE_OS::fopen(f_path, "wb+");
-
-        ACE_SOCK_Stream *data_stream = new ACE_SOCK_Stream();
-        ACE_SOCK_Connector *data_con = new ACE_SOCK_Connector();
-        ACE_INET_Addr *inet_add = new ACE_INET_Addr();
-        inet_add->set(user->getPort(), user->getIP());
-
-        if (data_con->connect(*data_stream, *inet_add) == -1)
-        {
-            Stream.send(DATA_CONN_FAILED, ACE_OS::strlen(DATA_CONN_FAILED), 0);
-            ACE_DEBUG((LM_DEBUG, "user %s connection error.\n", user->getUserName()));
-            return 0;
+        if(processXPWD(Stream,cmd) == -1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
         }
-
-        char *rec_buf = new char[FILE_DATA_BLOCK];
-
-        int rec_counter = data_stream->recv(rec_buf, REC_BLOCK);
-
-        if (rec_counter < REC_BLOCK)
-            rec_buf[rec_counter] = 0;
-
-        int total_count = rec_counter;
-
-        while (rec_counter != -1 && rec_counter == REC_BLOCK)
-        {
-            rec_counter = data_stream->recv(rec_buf, REC_BLOCK);
-            ACE_OS::fwrite(rec_buf, 1, rec_counter, fp);
-            total_count += rec_counter;
-            if (rec_counter < REC_BLOCK)
-                break;
+     }
+    else if (cmd.substr(0,4) == "AUTH")
+    {
+        if(this->isUserLoginValid(Stream)==-1){
+            return -1;
         }
-        rec_buf[total_count] = 0;
-
-        ACE_OS::fclose(fp);
-        data_stream->close();
-
-        Stream.send(TRANS_COMPELETE, ACE_OS::strlen(TRANS_COMPELETE), 0);
-        ACE_DEBUG((LM_DEBUG, "user %s upload file %s in the current directory.\n", user->getUserName(), f_path));
-
-        delete data_stream;
-        delete data_con;
-        delete inet_add;
-        delete[] f_name;
-
-        delete[] rec_buf;
+        if(processAUTH(Stream,cmd) == -1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
+        }
     }
-    else if (cmd[0] == 'X' && cmd[1] == 'P')
+    else if (cmd.substr(0,3) == "PWD")
     {
-        if (handlerToUser.find(Stream.get_handle()) == handlerToUser.end() || handlerToUser[Stream.get_handle()]->getStatus() == 0)
-        {
-            Stream.send(USR_UNLOGIN, ACE_OS::strlen(USR_UNLOGIN), 0);
-            return 0;
+        if(this->isUserLoginValid(Stream)==-1){
+            return -1;
         }
-        User *user = handlerToUser[Stream.get_handle()];
-        char *dir_root = new char[COMMAND_SIZE];
-        std::string str("257");
-        str.append(user->getCurrentDir());
-        str.append(" is current directory.\r\n");
-        ACE_OS::strcpy(dir_root, str.c_str());
-        Stream.send(dir_root, ACE_OS::strlen(dir_root), 0);
-        ACE_DEBUG((LM_DEBUG, "user %s display current directory\n", user->getUserName()));
-
-        delete[] dir_root;
+        if(processPWD(Stream,cmd) == -1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
+        }
     }
-    else if (cmd[0] == 'A' && cmd[1] == 'U')
+    else if(cmd.substr(0,4) == "PASV")
     {
-        Stream.send(AUTH_CMD, ACE_OS::strlen(AUTH_CMD), 0);
-    }
-    else if (cmd[0] == 'P' && cmd[1] == 'W')
-    {
-        if (handlerToUser.find(Stream.get_handle()) == handlerToUser.end() || handlerToUser[Stream.get_handle()]->getStatus() == 0)
-        {
-            return 0;
+        if(this->isUserLoginValid(Stream)==-1){
+            return -1;
         }
-        User *user = handlerToUser[Stream.get_handle()];
-        // ACE_SOCK_Stream *data_stream = new ACE_SOCK_Stream();
-        // ACE_SOCK_Connector *data_con = new ACE_SOCK_Connector();
-        // ACE_INET_Addr *inet_add = new ACE_INET_Addr();
-        // inet_add->set(user->getPort(), user->getIP());
 
-        // if (data_con->connect(*data_stream, *inet_add) == -1)
-        // {
-        //     Stream.send(DATA_CONN_FAILED, ACE_OS::strlen(DATA_CONN_FAILED), 0);
-        //     ACE_DEBUG((LM_DEBUG, "user %s connection error.\n", user->getUserName()));
-        //     return 0;
-        // }
-        // data_stream->send(user->getCurrentDir(), ACE_OS::strlen(user->getCurrentDir()), 0);
-        Stream.send(PWD_CMD, ACE_OS::strlen(PWD_CMD), 0);
-        Stream.send(user->getCurrentDir(), ACE_OS::strlen(user->getCurrentDir()), 0);
-        // delete data_stream;
-        // delete data_con;
-        // delete inet_add;
-    }
-    else if(cmd[0] == 'P' && cmd[1] == 'A' && cmd[2] == 'S' && cmd[3] == 'V'||(cmd[0] == 'E'&& cmd[1] == 'P'))
-    {
-        if(handlerToUser.find(Stream.get_handle()) == handlerToUser.end() || handlerToUser[Stream.get_handle()]->getStatus() == 0)
-        {
-            Stream.send(USR_UNLOGIN, ACE_OS::strlen(USR_UNLOGIN), 0);
-            return 0;
-        }
-        User* user = handlerToUser[Stream.get_handle()];
-
-        ACE_INET_Addr *file_addr = new ACE_INET_Addr;
-        ACE_SOCK_Acceptor *file_accept = new ACE_SOCK_Acceptor; 
-        int pPort;
-        for(pPort = BEGINPORT; pPort < ENDPORT; pPort++){
-            if(file_addr->set(pPort) == -1){
-                continue;
-            }
-            if(file_accept->open(*file_addr)==-1){
-                continue;
-            }
-        }
-        if(pPort>=ENDPORT){
-            Stream.send(PORT_EXHAUSTED, ACE_OS::strlen(PORT_EXHAUSTED));
-        }
-        std::stringstream ipAndPort;
-        ipAndPort<<PASV_CMD<<"("<<DEFAULT_IP<<","<<(pPort>>8)<<","<<(pPort & 0xFF)<<").";
-        Stream.send(ipAndPort.str().c_str(), ACE_OS::strlen(ipAndPort.str().c_str()),0);
-        user->setPort(pPort);
-        user->setIP(DEFAULT_IP);
     }
     
     return 0;
+}
+
+int TaskThread::isUserLoginValid(ACE_SOCK_STREAM &Stream)
+{
+        if (handlerToUser.find(Stream.get_handle()) == handlerToUser.end() || handlerToUser[Stream.get_handle()]->getStatus() == 0)
+        {
+            Stream.send(USR_UNLOGIN, ACE_OS::strlen(USR_UNLOGIN), 0);
+            return -1;
+        } 
+        return 0;
 }
 int TaskThread::svc(void)
 {
@@ -438,12 +170,407 @@ int TaskThread::svc(void)
 
 int TaskThread::processUSER(ACE_SOCK_Stream &Stream, string &cmd){
         User *user = new User;
-        string u_name = cmd.substr(0,4);
+        string u_name = cmd.substr(5,cmd.size());
+        trim(u_name);
+        cout<<u_name<<endl;
         user->setUserName(u_name);
         if(Stream.send(PWD_REQUIRE, ACE_OS::strlen(PWD_REQUIRE), 0)==-1){
             return -1;
         }   
         ACE_DEBUG((LM_DEBUG, "wait for password\n"));
         handlerToUser[Stream.get_handle()] = user;
-        return 0
+        return 0;
+}
+
+int TaskThread::processPASS(ACE_SOCK_Stream &Stream, string &cmd)
+{
+        if(handlerToUser.find(Stream.get_handle()) == handlerToUser.end()){
+            return -1;
+        }
+
+        string file_pwd = handlerToUser[Stream.get_handle()]->getpwd(handlerToUser[Stream.get_handle()]->getUserName());
+
+        string password = cmd.substr(5,cmd.size());
+
+        trim(password);
+
+        if (file_pwd == password)
+        {
+            handlerToUser[Stream.get_handle()]->setStatus(1);
+
+            Stream.send(LOGIN_SUCCESS, ACE_OS::strlen(LOGIN_SUCCESS));
+            return 0;
+        }
+        else
+        {
+            Stream.send(USR_LOGI_FAILED, ACE_OS::strlen(USR_LOGI_FAILED));
+            handlerToUser[Stream.get_handle()]->setStatus(0);
+            ACE_DEBUG((LM_DEBUG, "user %s login failed! \n", handlerToUser[Stream.get_handle()]->getUserName()));
+            if (handlerToUser.find(Stream.get_handle()) != handlerToUser.end())
+            {
+                User *del = handlerToUser[Stream.get_handle()];
+                handlerToUser.erase(Stream.get_handle());
+                delete del;
+            }
+            return -1;
+        }
+}
+
+int TaskThread::processSYST(ACE_SOCK_Stream &Stream, string &cmd)
+{
+    if(Stream.send(SYST_CMD, ACE_OS::strlen(SYST_CMD))==-1){
+        return -1;
+    }
+    return 0;
+}
+
+int TaskThread::processPASV(ACE_SOCK_Stream &Stream, string &cmd)
+{
+    User* user = handlerToUser[Stream.get_handle()];
+
+    ACE_INET_Addr *file_addr = new ACE_INET_Addr;
+    ACE_SOCK_Acceptor *file_accept = new ACE_SOCK_Acceptor; 
+    int pPort;
+    for(pPort = BEGINPORT; pPort < ENDPORT; pPort++){
+        if(file_addr->set(pPort) == -1){
+            continue;
+        }
+        if(file_accept->open(*file_addr)==-1){
+            continue;
+        }
+    }
+    if(pPort>=ENDPORT){
+        Stream.send(PORT_EXHAUSTED, ACE_OS::strlen(PORT_EXHAUSTED));
+    }
+    std::stringstream ipAndPort;
+    ipAndPort<<PASV_CMD<<"("<<DEFAULT_IP<<","<<(pPort>>8)<<","<<(pPort & 0xFF)<<").";
+    Stream.send(ipAndPort.str().c_str(), ACE_OS::strlen(ipAndPort.str().c_str()),0);
+    user->setPort(pPort);
+    user->setIP(DEFAULT_IP);
+    return 0;
+}
+
+int TaskThread::processPORT(ACE_SOCK_Stream &Stream, string &cmd)
+{
+    string ip_cmd = cmd.substr(5,cmd.size());
+    trim(ip_cmd);
+    string ip_addr = ip_cmd;
+
+    int port1 = 0;
+    int port2 = 0;
+    int comma_counter = 0;
+    int num_index = 0;
+    int i = ip_addr.size()-1;
+
+    while (!(comma_counter == 1 && ip_addr[i] == ','))
+    {
+        if (ip_addr[i] == ',')
+        {
+            comma_counter++;
+            num_index = 0;
+        }
+        else // process number
+        {
+            double radix = 10;
+            if (comma_counter == 0)
+            {
+                // the last segment of the ip address
+                int curr_cha_number = ip_addr[i] - '0';
+
+                port1 += int(curr_cha_number * pow(radix, num_index));
+
+                num_index++;
+            }
+            else
+            {
+                int curr_cha_number = ip_addr[i] - '0';
+                port2 += int(curr_cha_number * pow(radix, num_index));
+                num_index++;
+            }
+        }
+        i--;
+    }
+
+    int addr_len = ip_addr.size();
+    for (int j = 0; j < addr_len; j++)
+        if (ip_addr[j] == ',')
+            ip_addr[j] = '.';
+    ip_addr[i] = 0;
+    handlerToUser[Stream.get_handle()]->setIP(ip_addr);
+    cout<<ip_addr<<endl;
+    int port = port2 * 256 + port1;
+    handlerToUser[Stream.get_handle()]->setPort(port);
+    cout<<port<<endl;
+    Stream.send(PORT_COMMAND_SUCCESS, ACE_OS::strlen(PORT_COMMAND_SUCCESS), 0);
+    ACE_DEBUG((LM_DEBUG, "user %s PORT command successful\n", handlerToUser[Stream.get_handle()]->getUserName()));
+}
+
+int TaskThread::processCWD(ACE_SOCK_Stream &Stream, string &cmd)
+{
+    User *currentUser = handlerToUser[Stream.get_handle()];
+    string dir_cmd = cmd.substr(4,cmd.size());
+    trim(dir_cmd);
+    string upper_flag = "..";
+    if (dir_cmd == upper_flag){
+        if (currentUser->getCurrentDir() == ROOT_DIR){
+            Stream.send(CWD_SUCCESS, ACE_OS::strlen(CWD_SUCCESS));
+        }else{
+            string currentdir = currentUser->getCurrentDir();
+            int length = currentdir.size()-2;
+            while (currentUser->getCurrentDir()[length] != '/' && currentUser->getCurrentDir()[length] != '\\' && length >= 0)
+            {
+                length--;
+            }
+            currentUser->setCurrentDir(currentdir.substr(0,length).append("/"));
+            Stream.send(CWD_SUCCESS, ACE_OS::strlen(CWD_SUCCESS));
+        }
+        ACE_DEBUG((LM_DEBUG, "user %s modified directory!\n", currentUser->getUserName()));
+    }else{
+        string toDir;
+        if(!dir_cmd.empty()&&(dir_cmd[0] == '//'||dir_cmd[0] == '/')){
+            toDir = dir_cmd;
+        }else{
+            toDir.append(currentUser->getCurrentDir()).append(dir_cmd);
+        }
+        ACE_stat state;
+        if(ACE_OS::stat(toDir.c_str(),&state)<0){
+            Stream.send(DIR_NOT_FIND,ACE_OS::strlen(DIR_NOT_FIND),0);
+            ACE_DEBUG((LM_DEBUG,"user %s directory invalid\n",currentUser->getUserName()));
+            return -1;
+        }else{
+            currentUser->setCurrentDir(toDir.append("/"));
+            Stream.send(CWD_SUCCESS,ACE_OS::strlen(CWD_SUCCESS));
+            ACE_DEBUG((LM_DEBUG,"user %s change directory\n",currentUser->getUserName()));
+        }
+    }
+    return 0;
+}
+
+int TaskThread::processQUIT(ACE_SOCK_Stream &Stream)
+{
+    string q_cmd = "221 Goodbye\n";
+    if(Stream.send(q_cmd.c_str(), ACE_OS::strlen(q_cmd.c_str()), 0) ==-1){
+        return -1;
+    }
+    if (handlerToUser.find(Stream.get_handle()) != handlerToUser.end())
+    {
+        User *del = handlerToUser[Stream.get_handle()];
+        handlerToUser.erase(Stream.get_handle());
+        delete del;
+    }
+    return 0;
+}
+
+int TaskThread::processRETR(ACE_SOCK_Stream &Stream, string &cmd)
+{
+    User *currentUser = handlerToUser[Stream.get_handle()];
+    string file_name = cmd.substr(5,cmd.size());
+    trim(file_name);
+    int len = file_name.size();
+    string str(file_name);
+
+    FilesCtr fileCtr;
+    if (!fileCtr.fileExist(file_name.c_str())){
+        Stream.send(DIR_NOT_FIND, ACE_OS::strlen(DIR_NOT_FIND), 0);
+        ACE_DEBUG((LM_DEBUG,"user %s requested for an invalid file\n",currentUser->getUserName()));
+        return -1;
+    }else
+    {
+        //transfer file
+        ACE_SOCK_Stream *data_stream = new ACE_SOCK_Stream();
+        ACE_SOCK_Connector *data_con = new ACE_SOCK_Connector();
+        ACE_INET_Addr *inet_add = new ACE_INET_Addr();
+        inet_add->set(currentUser->getPort(),currentUser->getIP().c_str());
+
+        if(data_con->connect(*data_stream,*inet_add)==-1){
+            Stream.send(DATA_CONN_FAILED,ACE_OS::strlen(DATA_CONN_FAILED),0);
+            ACE_DEBUG((LM_DEBUG,"user %s connection error.\n",currentUser->getUserName()));
+            return -1;
+        }
+        FILE *fp;
+        fp = ACE_OS::fopen(file_name.c_str(), "rb");
+        if (fp == nullptr){
+            Stream.send(OPEN_FILE_FAILED, ACE_OS::strlen(OPEN_FILE_FAILED), 0);
+            ACE_DEBUG((LM_DEBUG,"user %s open file failed\n",currentUser->getUserName()));
+            return -1;
+        }
+
+        ACE_OS::fseek(fp, 0L, 2);
+        int len = ACE_OS::ftell(fp);
+        ACE_OS::fseek(fp, 0L, 0);
+
+        char *file_block = new char[FILE_DATA_BLOCK];
+        int read_len = ACE_OS::fread(file_block, 1, FILE_DATA_BLOCK, fp);
+        file_block[read_len] = 0;
+        int data_read = 1024;
+        ACE_DEBUG((LM_DEBUG, "opening file: %s\n", file_name));
+        std::string str("150 Opening ASCII mode data connection for ");
+        str.append(file_name);
+        str.append(".\r\n");
+        Stream.send(str.c_str(),ACE_OS::strlen(str.c_str()),0);
+        data_stream->send(file_block,ACE_OS::strlen(file_block), 0);
+        while(data_read<len){
+            read_len = ACE_OS::fread(file_block, 1, FILE_DATA_BLOCK, fp);
+            data_read += read_len;
+            data_stream->send(file_block, read_len, 0);
+        }
+        data_stream->close();
+        Stream.send(TRANS_COMPELETE, ACE_OS::strlen(TRANS_COMPELETE), 0);
+        ACE_OS::fclose(fp);
+        delete data_con;
+        delete data_stream;
+        delete inet_add;
+        delete[] file_block;
+        ACE_DEBUG((LM_DEBUG,"user %s download file %s.\n",currentUser->getUserName(),file_name));
+        return 0;
+    }
+}
+
+int TaskThread::processLIST(ACE_SOCK_Stream &Stream, string &cmd)
+{
+    Stream.send(OPEN_ASCII_MODE, ACE_OS::strlen(OPEN_ASCII_MODE), 0);
+    ACE_SOCK_Stream *data_stream = new ACE_SOCK_STREAM();
+    ACE_SOCK_Connector *data_conn = new ACE_SOCK_Connector();
+    ACE_INET_Addr *inet_addr = new ACE_INET_Addr();
+    User *currentUser = handlerToUser[Stream.get_handle()];
+    inet_addr->set(currentUser->getPort(), currentUser->getIP().c_str());
+    if (data_conn->connect(*data_stream, *inet_addr) == -1)
+    {
+        Stream.send(DATA_CONN_FAILED, ACE_OS::strlen(DATA_CONN_FAILED), 0);
+        return -1;
+    }
+    DIR *dir;//用于存放opendir()成功时的返回值
+	struct dirent *file;//用于存放readir()的返回值
+	struct stat info;//目录项描述结构体
+	if(!(dir = opendir(currentUser->getCurrentDir().c_str()))){
+		//打开目录失败
+		cout<<"fail to read"<<currentUser->getCurrentDir().c_str();
+		return -1;
+	}
+	struct passwd *userinfo;
+	struct group *groupinfo;
+	while((file = readdir(dir))!= NULL){
+		//文件无文件名只有后缀
+		if(strncmp(file->d_name, ".", 1) == 0)
+			continue;
+		strcpy(filename[filenum++],file->d_name);
+		//获取文件信息，存储在info中
+		stat(file->d_name,&info); 
+		userinfo = getpwuid(info.st_uid);//所有者用户名 
+		groupinfo = getgrgid(info.st_gid);//所有者所在组用户名
+		char pw[11];
+		power(info.st_mode,pw);//文件权限信息
+        string file_info;
+        long long fz = info.st_size;
+		file_info.append(pw).append("\t").append((userinfo != nullptr ? userinfo->pw_name: ""))
+            .append("  ").append(groupinfo != nullptr ?groupinfo->gr_name : "").append("  ");
+        stringstream ss;
+        ss<<fz<<"\t";
+        file_info.append(ss.str());
+        file_info+= 4 + ctime(&info.st_mtime);
+        trimToParentDir(file_info);
+		file_info.append("\t").append(file->d_name).append("\n");
+		data_stream->send(file_info.c_str(),file_info.size(),0);
+	}
+	closedir(dir);
+    data_stream->close();
+    Stream.send(TRANS_COMPELETE, ACE_OS::strlen(TRANS_COMPELETE), 0);
+    delete data_conn;
+    delete data_stream;
+    delete inet_addr;
+    return 0;
+}
+
+int TaskThread::processSTOR(ACE_SOCK_Stream &Stream, string &cmd)
+{
+    User *user = handlerToUser[Stream.get_handle()];
+    Stream.send(OPEN_ASCII_MODE, ACE_OS::strlen(OPEN_ASCII_MODE), 0);
+    string f_name = cmd.substr(5,cmd.size());
+    trim(f_name);
+    int leng = f_name.size();
+
+    string file_path(user->getCurrentDir());
+    file_path.append(f_name);
+    char f_path[COMMAND_SIZE];
+    ACE_OS::strcpy(f_path, file_path.c_str());
+
+    FILE *fp;
+    fp = ACE_OS::fopen(f_path, "wb+");
+
+    ACE_SOCK_Stream *data_stream = new ACE_SOCK_Stream();
+    ACE_SOCK_Connector *data_con = new ACE_SOCK_Connector();
+    ACE_INET_Addr *inet_add = new ACE_INET_Addr();
+    inet_add->set(user->getPort(), user->getIP().c_str());
+
+    if (data_con->connect(*data_stream, *inet_add) == -1)
+    {
+        Stream.send(DATA_CONN_FAILED, ACE_OS::strlen(DATA_CONN_FAILED), 0);
+        ACE_DEBUG((LM_DEBUG, "user %s connection error.\n", user->getUserName()));
+        return -1;
+    }
+
+    char *rec_buf = new char[FILE_DATA_BLOCK];
+
+    int rec_counter = data_stream->recv(rec_buf, REC_BLOCK);
+
+    if (rec_counter < REC_BLOCK)
+        rec_buf[rec_counter] = 0;
+
+    int total_count = rec_counter;
+
+    while (rec_counter != -1 && rec_counter == REC_BLOCK)
+    {
+        rec_counter = data_stream->recv(rec_buf, REC_BLOCK);
+        ACE_OS::fwrite(rec_buf, 1, rec_counter, fp);
+        total_count += rec_counter;
+        if (rec_counter < REC_BLOCK)
+            break;
+    }
+    rec_buf[total_count] = 0;
+
+    ACE_OS::fclose(fp);
+    data_stream->close();
+
+    Stream.send(TRANS_COMPELETE, ACE_OS::strlen(TRANS_COMPELETE), 0);
+    ACE_DEBUG((LM_DEBUG, "user %s upload file %s in the current directory.\n", user->getUserName(), f_path));
+
+    delete data_stream;
+    delete data_con;
+    delete inet_add;
+    delete[] rec_buf;
+    return -1;
+}
+
+int TaskThread::processXPWD(ACE_SOCK_Stream &Stream, string &cmd)
+{
+    User *user = handlerToUser[Stream.get_handle()];
+    char *dir_root = new char[COMMAND_SIZE];
+    std::string str("257");
+    str.append(user->getCurrentDir());
+    str.append(" is current directory.\r\n");
+    ACE_OS::strcpy(dir_root, str.c_str());
+    if(Stream.send(dir_root, ACE_OS::strlen(dir_root), 0)==-1){
+        return -1;
+    }
+    ACE_DEBUG((LM_DEBUG, "user %s display current directory\n", user->getUserName()));
+
+    delete[] dir_root;
+    return 0;
+}
+
+int TaskThread::processAUTH(ACE_SOCK_Stream &Stream, string &cmd)
+{
+    if(Stream.send(AUTH_CMD, ACE_OS::strlen(AUTH_CMD), 0)==-1){
+        return -1;
+    }
+    return 0;
+}
+
+int TaskThread::processPWD(ACE_SOCK_Stream &Stream, string &cmd)
+{
+    User *user = handlerToUser[Stream.get_handle()];
+    string currentDir;
+    currentDir.append(PWD_CMD).append(user->getCurrentDir()).append(" is the current directory.\r\n");
+    Stream.send(currentDir.c_str(), currentDir.size(), 0);
+    return 0;
 }
