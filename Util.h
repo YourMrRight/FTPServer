@@ -17,6 +17,7 @@
 #include<cstdio>
 using namespace std;
 
+#define MODE (S_IRWXU | S_IRWXG | S_IRWXO)
 #define LS_CMD "ls"
 #define CD_CMD "cd"
 
@@ -84,5 +85,25 @@ void power(int mode, char str[]){//权限解析
     if ((mode & S_IROTH)) str[7] = 'r';
     if ((mode & S_IWOTH)) str[8] = 'w';
     if ((mode & S_IXOTH)) str[9] = 'x';
+}
+int mk_dir(const char *dir)
+{
+	DIR *mydir = NULL;
+	if ((mydir = opendir(dir)) == NULL) //判断目录
+	{
+		int ret = mkdir(dir, MODE); //创建目录
+		if (ret != 0)
+		{
+			return -1;
+		}
+		printf("%s created sucess!/n", dir);
+	}
+	else
+	{
+		printf("%s exist!/n", dir);
+        return -1;
+	}
+
+	return 0;
 }
 #endif

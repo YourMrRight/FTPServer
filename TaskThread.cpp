@@ -15,17 +15,17 @@ int TaskThread::processCmd(ACE_SOCK_Stream Stream, string cmd)
     {
         if(processUSER(Stream, cmd)==-1){
             ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
-            return -1;
+            return 0;
         }
     }else if (cmd.substr(0,4) == "PASS")
     {
         if(processPASS(Stream, cmd)==-1){
             ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
-            return -1;
+            return 0;
         }
     }else if (cmd.substr(0,4) == "SYST"){
         if(this->isUserLoginValid(Stream) == -1){
-            return -1;
+            return 0;
         }
         if(processSYST(Stream, cmd)==-1){
             ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
@@ -34,7 +34,7 @@ int TaskThread::processCmd(ACE_SOCK_Stream Stream, string cmd)
     else if (cmd.substr(0,3) == "CWD")
     {
         if(this->isUserLoginValid(Stream) == -1){
-            return -1;
+            return 0;
         }
         if(this->processCWD(Stream, cmd)==-1){
             ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
@@ -43,7 +43,7 @@ int TaskThread::processCmd(ACE_SOCK_Stream Stream, string cmd)
     else if (cmd.substr(0,4) == "QUIT")
     {
         if(this->isUserLoginValid(Stream) == -1){
-            return -1;
+            return 0;
         }
         if(processQUIT(Stream)==-1){
             ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
@@ -52,7 +52,7 @@ int TaskThread::processCmd(ACE_SOCK_Stream Stream, string cmd)
     else if (cmd.substr(0,4) == "RETR")
     {
         if(this->isUserLoginValid(Stream) == -1){
-            return -1;
+            return 0;
         }
         if(processRETR(Stream, cmd) == -1){
             ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
@@ -60,7 +60,7 @@ int TaskThread::processCmd(ACE_SOCK_Stream Stream, string cmd)
 
     }else if (cmd.substr(0,4) == "LIST"){
         if(this->isUserLoginValid(Stream)==-1){
-            return -1;
+            return 0;
         }
         if(processLIST(Stream,cmd)==-1){
             ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
@@ -69,7 +69,7 @@ int TaskThread::processCmd(ACE_SOCK_Stream Stream, string cmd)
     else if (cmd.substr(0,4) == "PORT")
     {
         if(this->isUserLoginValid(Stream)==-1){
-            return -1;
+            return 0;
         }
         if( processPORT(Stream,cmd)==-1 ){
             ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
@@ -79,7 +79,7 @@ int TaskThread::processCmd(ACE_SOCK_Stream Stream, string cmd)
     else if (cmd.substr(0,4) == "STOR")
     {
         if(this->isUserLoginValid(Stream)==-1){
-            return -1;
+            return 0;
         }
         if(processSTOR(Stream,cmd) == -1){
             ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
@@ -88,7 +88,7 @@ int TaskThread::processCmd(ACE_SOCK_Stream Stream, string cmd)
     else if (cmd.substr(0,4) == "XPWD")
     {
         if(this->isUserLoginValid(Stream)==-1){
-            return -1;
+            return 0;
         }
         if(processXPWD(Stream,cmd) == -1){
             ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
@@ -97,7 +97,7 @@ int TaskThread::processCmd(ACE_SOCK_Stream Stream, string cmd)
     else if (cmd.substr(0,4) == "AUTH")
     {
         if(this->isUserLoginValid(Stream)==-1){
-            return -1;
+            return 0;
         }
         if(processAUTH(Stream,cmd) == -1){
             ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
@@ -106,18 +106,50 @@ int TaskThread::processCmd(ACE_SOCK_Stream Stream, string cmd)
     else if (cmd.substr(0,3) == "PWD")
     {
         if(this->isUserLoginValid(Stream)==-1){
-            return -1;
+            return 0;
         }
         if(processPWD(Stream,cmd) == -1){
             ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
         }
     }
-    else if(cmd.substr(0,4) == "PASV")
-    {
+    else if(cmd.substr(0,4) == "PASV"){
         if(this->isUserLoginValid(Stream)==-1){
-            return -1;
+            return 0;
         }
-
+        if(processPASV(Stream, cmd) ==-1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
+        }
+    }else if(cmd.substr(0,4) == "CDUP"){
+        if(this->isUserLoginValid(Stream) == -1){
+            return 0;
+        }
+        if(processCDUP(Stream) == -1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
+        }
+    }else if(cmd.substr(0,3) == "MKD"){
+        if(this->isUserLoginValid(Stream) == -1){
+            return 0;
+        }
+        if(processMKD(Stream,cmd) == -1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
+        }
+    }else if(cmd.substr(0,4) == "SIZE"){
+        if(this->isUserLoginValid(Stream) == -1){
+            return 0;
+        }
+        if(processSIZE(Stream,cmd) == -1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
+        }
+    }else if(cmd.substr(0, 4) == "DELE"){
+        if(this->isUserLoginValid(Stream) == -1){
+            return 0;
+        }
+        if(processDELE(Stream,cmd) == -1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
+        }
+    }else if(cmd.substr(0, 4) == "RNFR"){
+        Stream.send("350 ",ACE_OS::strlen("350 "),0);
+        ACE_DEBUG((LM_DEBUG,"RNFR"));
     }
     
     return 0;
@@ -203,8 +235,9 @@ int TaskThread::processPASS(ACE_SOCK_Stream &Stream, string &cmd)
         }
         else
         {
-            Stream.send(USR_LOGI_FAILED, ACE_OS::strlen(USR_LOGI_FAILED));
-            handlerToUser[Stream.get_handle()]->setStatus(0);
+            if(Stream.get_handle() == -1){
+                cout<<"通道已经关闭"<<endl;
+            }
             ACE_DEBUG((LM_DEBUG, "user %s login failed! \n", handlerToUser[Stream.get_handle()]->getUserName()));
             if (handlerToUser.find(Stream.get_handle()) != handlerToUser.end())
             {
@@ -212,7 +245,8 @@ int TaskThread::processPASS(ACE_SOCK_Stream &Stream, string &cmd)
                 handlerToUser.erase(Stream.get_handle());
                 delete del;
             }
-            return -1;
+            Stream.send(USR_LOGI_FAILED, ACE_OS::strlen(USR_LOGI_FAILED));
+            return 0;
         }
 }
 
@@ -312,19 +346,7 @@ int TaskThread::processCWD(ACE_SOCK_Stream &Stream, string &cmd)
     trim(dir_cmd);
     string upper_flag = "..";
     if (dir_cmd == upper_flag){
-        if (currentUser->getCurrentDir() == ROOT_DIR){
-            Stream.send(CWD_SUCCESS, ACE_OS::strlen(CWD_SUCCESS));
-        }else{
-            string currentdir = currentUser->getCurrentDir();
-            int length = currentdir.size()-2;
-            while (currentUser->getCurrentDir()[length] != '/' && currentUser->getCurrentDir()[length] != '\\' && length >= 0)
-            {
-                length--;
-            }
-            currentUser->setCurrentDir(currentdir.substr(0,length).append("/"));
-            Stream.send(CWD_SUCCESS, ACE_OS::strlen(CWD_SUCCESS));
-        }
-        ACE_DEBUG((LM_DEBUG, "user %s modified directory!\n", currentUser->getUserName()));
+        this->processCDUP(Stream);
     }else{
         string toDir;
         if(!dir_cmd.empty()&&(dir_cmd[0] == '//'||dir_cmd[0] == '/')){
@@ -364,18 +386,18 @@ int TaskThread::processQUIT(ACE_SOCK_Stream &Stream)
 int TaskThread::processRETR(ACE_SOCK_Stream &Stream, string &cmd)
 {
     User *currentUser = handlerToUser[Stream.get_handle()];
-    string file_name = cmd.substr(5,cmd.size());
+    string file_name = currentUser->getCurrentDir();
+
+    file_name.append(cmd.substr(5,cmd.size()));
     trim(file_name);
     int len = file_name.size();
-    string str(file_name);
 
     FilesCtr fileCtr;
     if (!fileCtr.fileExist(file_name.c_str())){
         Stream.send(DIR_NOT_FIND, ACE_OS::strlen(DIR_NOT_FIND), 0);
         ACE_DEBUG((LM_DEBUG,"user %s requested for an invalid file\n",currentUser->getUserName()));
         return -1;
-    }else
-    {
+    }else{
         //transfer file
         ACE_SOCK_Stream *data_stream = new ACE_SOCK_Stream();
         ACE_SOCK_Connector *data_con = new ACE_SOCK_Connector();
@@ -406,7 +428,7 @@ int TaskThread::processRETR(ACE_SOCK_Stream &Stream, string &cmd)
         ACE_DEBUG((LM_DEBUG, "opening file: %s\n", file_name));
         std::string str("150 Opening ASCII mode data connection for ");
         str.append(file_name);
-        str.append(".\r\n");
+        str.append(".\n");
         Stream.send(str.c_str(),ACE_OS::strlen(str.c_str()),0);
         data_stream->send(file_block,ACE_OS::strlen(file_block), 0);
         while(data_read<len){
@@ -490,6 +512,7 @@ int TaskThread::processSTOR(ACE_SOCK_Stream &Stream, string &cmd)
     int leng = f_name.size();
 
     string file_path(user->getCurrentDir());
+    file_path.append("/");
     file_path.append(f_name);
     char f_path[COMMAND_SIZE];
     ACE_OS::strcpy(f_path, file_path.c_str());
@@ -532,13 +555,13 @@ int TaskThread::processSTOR(ACE_SOCK_Stream &Stream, string &cmd)
     data_stream->close();
 
     Stream.send(TRANS_COMPELETE, ACE_OS::strlen(TRANS_COMPELETE), 0);
-    ACE_DEBUG((LM_DEBUG, "user %s upload file %s in the current directory.\n", user->getUserName(), f_path));
+    //ACE_DEBUG((LM_DEBUG, "user %s upload file %s in the current directory.\n", user->getUserName(), f_path));
 
     delete data_stream;
     delete data_con;
     delete inet_add;
     delete[] rec_buf;
-    return -1;
+    return 0;
 }
 
 int TaskThread::processXPWD(ACE_SOCK_Stream &Stream, string &cmd)
@@ -572,5 +595,87 @@ int TaskThread::processPWD(ACE_SOCK_Stream &Stream, string &cmd)
     string currentDir;
     currentDir.append(PWD_CMD).append(user->getCurrentDir()).append(" is the current directory.\r\n");
     Stream.send(currentDir.c_str(), currentDir.size(), 0);
+    return 0;
+}
+
+int TaskThread::processSIZE(ACE_SOCK_Stream &Stream, string &cmd)
+{
+    User *currentUser = handlerToUser[Stream.get_handle()];
+    string dir = cmd.substr(5,cmd.size());
+    trim(dir);
+    if(dir[0] != '/'){
+        dir = currentUser->getCurrentDir() + dir;
+    }
+    if(opendir(dir.c_str()) == NULL) //判断目录
+	{
+        Stream.send(DIR_NOT_FIND, ACE_OS::strlen(DIR_NOT_FIND), 0);
+        return 0;
+	}
+    struct stat statbuf;
+	stat(dir.c_str(), &statbuf);
+	size_t filesize = statbuf.st_size;
+    string res =SIZE_CMD + filesize;
+    Stream.send(res.c_str(), res.size(), 0);
+    return 0;
+}
+
+int TaskThread::processCDUP(ACE_SOCK_Stream &Stream)
+{
+    User *currentUser = handlerToUser[Stream.get_handle()]; 
+    if (currentUser->getCurrentDir() == ROOT_DIR){
+        Stream.send(CWD_SUCCESS, ACE_OS::strlen(CWD_SUCCESS));
+    }else{
+        string currentdir = currentUser->getCurrentDir();
+        int length = currentdir.size()-2;
+        while (currentUser->getCurrentDir()[length] != '/' && currentUser->getCurrentDir()[length] != '//' && length >= 0)
+        {
+            length--;
+        }
+        currentUser->setCurrentDir(currentdir.substr(0,length).append("/"));
+        Stream.send(CWD_SUCCESS, ACE_OS::strlen(CWD_SUCCESS));
+    }
+    ACE_DEBUG((LM_DEBUG, "user %s modified directory!\n", currentUser->getUserName()));
+    return 0;
+}
+
+int TaskThread::processMKD(ACE_SOCK_Stream &Stream, string &cmd)
+{
+    User *currentUser = handlerToUser[Stream.get_handle()];
+    string newDir = cmd.substr(4,cmd.size());
+    trim(newDir);
+    if(newDir[0] !='/'&&newDir.size()>1){
+        newDir = currentUser->getCurrentDir() + newDir;
+    }
+    if(mk_dir(newDir.c_str())==-1){
+        Stream.send(MkDIR_ERRROE, ACE_OS::strlen(MkDIR_ERRROE), 0);
+        return 0;
+    }
+    string resMessage = MKDIR_CMD + newDir +" created.\n";
+    Stream.send(resMessage.c_str(), resMessage.size(), 0);
+    return 0;
+}
+
+int TaskThread::processDELE(ACE_SOCK_Stream &Stream, string &cmd)
+{
+    User *currentUser = handlerToUser[Stream.get_handle()];
+    string dir = cmd.substr(5,cmd.size());
+    trim(dir);
+    if(dir[0] != '/'){
+        dir = currentUser->getCurrentDir() + dir;
+    }
+    if(opendir(dir.c_str()) == NULL) //判断目录
+	{
+        Stream.send(DIR_NOT_FIND, ACE_OS::strlen(DIR_NOT_FIND), 0);
+        return 0;
+	}
+    if(remove(dir.c_str())==0)
+    {
+        cout<<"删除成功"<<endl;        
+    }
+    else
+    {
+        cout<<"删除失败"<<endl;        
+    }
+    Stream.send(DELETE_SUCCESS, ACE_OS::strlen(DELETE_SUCCESS), 0);
     return 0;
 }

@@ -39,7 +39,7 @@ string User::getpwd(string u_name)const
 	{
 		usrpwd = nullptr;
 	}
-	return string(usrpwd);
+	return string((usrpwd==nullptr?"":usrpwd));
 }
 
 void User::setStatus(int stat)

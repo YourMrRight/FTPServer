@@ -1,98 +1,129 @@
+// #include <stdio.h>
+// #include <string.h>
+// #include <errno.h>
+
+// #include <unistd.h>
+
+// #include <dirent.h>
+// #include <sys/types.h>
+// #include <sys/stat.h>
+// #include <iostream>
+// using namespace std;
+// extern int errno;
+
+// #define MODE (S_IRWXU | S_IRWXG | S_IRWXO)
+
+// int mk_dir(char *dir)
+// {
+// 	DIR *mydir = NULL;
+// 	if ((mydir = opendir(dir)) == NULL) //判断目录
+// 	{
+// 		int ret = mkdir(dir, MODE); //创建目录
+// 		if (ret != 0)
+// 		{
+// 			return -1;
+// 		}
+// 		printf("%s created sucess!/n", dir);
+// 	}
+// 	else
+// 	{
+// 		printf("%s exist!/n", dir);
+// 	}
+
+// 	return 0;
+// }
+
+// int mk_all_dir(char *dir)
+// {
+// 	cout << dir<<endl;
+	
+// 	bool flag = true;
+// 	char *pDir = dir;
+// 	while (flag)
+// 	{
+// 		char *pIndex = index(pDir, '/');
+// 			cout << pIndex<<endl;
+// 		if (pIndex != NULL && pIndex != dir)
+// 		{
+// 			char buffer[512] = {0};
+// 			int msg_size = pIndex - dir;
+// 			memcpy(buffer, dir, msg_size);
+// 			int ret = mk_dir(buffer);
+// 			if (ret < 0)
+// 			{
+// 				printf("%s created failed!/n", dir);
+// 			}
+// 		}
+// 		else if (pIndex == NULL && pDir == dir)
+// 		{
+// 			printf("dir is not directory!/n");
+// 			return -1;
+// 		}
+// 		else if (pIndex == NULL && pDir != dir)
+// 		{
+// 			int ret = mk_dir(dir);
+// 			if (ret < 0)
+// 			{
+// 				printf("%s created failed!/n", dir);
+// 			}
+
+// 			break;
+// 		}
+
+// 		pDir = pIndex + 1;
+// 	}
+
+// 	return 0;
+// }
+// size_t getFileSize1(const char *fileName) {
+
+// 	if (fileName == NULL) {
+// 		return 0;
+// 	}
+	
+// 	// 这是一个存储文件(夹)信息的结构体，其中有文件大小和创建时间、访问时间、修改时间等
+// 	struct stat statbuf;
+
+// 	// 提供文件名字符串，获得文件属性结构体
+// 	stat(fileName, &statbuf);
+	
+// 	// 获取文件大小
+// 	size_t filesize = statbuf.st_size;
+
+// 	return filesize;
+// }
+
 #include<iostream>
-#include<dirent.h>
-#include<sys/stat.h>
-#include<string.h>//memcmp()
-#include<grp.h>//getgrgid
-#include<unistd.h>//getcwd
-#include<pwd.h>//getpwuid
 #include<cstdio>
-#include <sstream>
-#include "Util.h"
+
 using namespace std;
 
-int ls(char *dirpath);//ls命令
-int ls_l(char *dirpath);//ls -l命令
-
-// char filename[100][255];
-// int filenum = 0;
-
-int main(int args,char* argv[]) {
-	char dir[255];
-	getcwd(dir,255);//获取当前工作环境绝对路径,存入dir中
-	// if( args > 1){//ls -l命令
-		ls_l(dir);
-		//cout<<"000";
-	// }else{//ls命令
-    //     cout<<dir<<endl;
-	// 	ls(dir);
-	// }
+// void mkdir_output(const string &output_path){
+//     if (access(output_path.c_str(), 0) == -1) {
+//         // mkdir(output_path.c_str(),S_IRUSR | S_IWUSR | S_IXUSR | S_IRWXG | S_IRWXO);
+//         system(("mkdir "+output_path).c_str());
+//         std::cout<<output_path<<" create! "<<std::endl;
+//     }
+//     else {
+//         system(("rm -rf "+output_path).c_str());
+//         system(("mkdir "+output_path).c_str());
+//         std::cout<<output_path<<" recover create! "<<std::endl;
+//     }
+// }
 
 
-    string str = "/user/local";
 
-	return 0;
-}
-int ls(char *dirpath){
-	DIR *dir;//用于存放opendir()成功时的返回值
-	struct dirent *file;//用于存放readir()的返回值
-	/*函数DIR *opendir(const char *pathname)，用于打开pathname，
-	若成功将返回值DIR类型的值，若失败，返回空指针*/
-	struct stat info;//用于存放文件信息
-	if(!(dir = opendir(dirpath))){
-		//打开目录失败
-		//printf("error opendir %s\n",dirpath);
-		cout<<"fail to read"<<dirpath;
-		return -1;
-	}
-	//读取opendir的返回值，其中d_name是文件名
-	while((file = readdir(dir))!= NULL){
-		//文件无文件名只有后缀
-		if(strncmp(file->d_name, ".", 1) == 0)
-			continue;
-		//获取文件信息，存储在info中
-		stat(file->d_name,&info);
-		//打印文件名
-		cout<<file->d_name<<endl;
-	}
-	cout<<endl;
-	closedir(dir);
-	return 1;
-}
-
-int ls_l(char *dirpath){
-	DIR *dir;//用于存放opendir()成功时的返回值
-	struct dirent *file;//用于存放readir()的返回值
-	struct stat info;//目录项描述结构体
-	if(!(dir = opendir(dirpath))){
-		//打开目录失败
-		cout<<"fail to read"<<dirpath;
-		return -1;
-	}
-	struct passwd *userinfo;
-	struct group *groupinfo;
-	while((file = readdir(dir))!= NULL){
-		//文件无文件名只有后缀
-		if(strncmp(file->d_name, ".", 1) == 0)
-			continue;
-		strcpy(filename[filenum++],file->d_name);
-		//获取文件信息，存储在info中
-		stat(file->d_name,&info); 
-		userinfo = getpwuid(info.st_uid);//所有者用户名 
-		groupinfo = getgrgid(info.st_gid);//所有者所在组用户名
-		char pw[11];
-		power(info.st_mode,pw);//文件权限信息
-        string file_info;
-
-        int fz = info.st_size;
-		file_info.append(pw).append("\t").append(userinfo->pw_name).append("\t").append(groupinfo->gr_name).append("\t");
-        stringstream ss;
-        ss<<fz<<"\t";
-        file_info.append(ss.str());
-        file_info+= 4 + ctime(&info.st_mtime);
-        trimToParentDir(file_info);
-		file_info.append("\t").append(file->d_name).append("\n");
-		cout<<file_info;
-	}
-	closedir(dir);
-	return 1;
+int main()
+{
+    char *savePath = "/home/scutech/ChatRoom.cpp";
+        
+    if(remove(savePath)==0)
+    {
+        cout<<"删除成功"<<endl;        
+    }
+    else
+    {
+        cout<<"删除ututgu8hu失败"<<endl;        
+    }
+    return 0;
 }

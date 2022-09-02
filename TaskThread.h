@@ -28,6 +28,13 @@ public:
     int processXPWD(ACE_SOCK_Stream &Stream, string &cmd);
     int processAUTH(ACE_SOCK_Stream &Stream, string &cmd);
     int processPWD(ACE_SOCK_Stream &Stream, string &cmd);
+    int processSIZE(ACE_SOCK_Stream &Stream, string &cmd);
+    int processCDUP(ACE_SOCK_Stream &Stream);
+    int processMKD(ACE_SOCK_Stream &Stream, string &cmd);
+    int processRMD(ACE_SOCK_Stream &Stream, string &cmd);
+    int processRNFR(ACE_SOCK_Stream &Stream, string &cmd);
+    int processRNTO(ACE_SOCK_Stream &Stream, string &cmd);
+    int processDELE(ACE_SOCK_Stream &Stream, string &cmd);
 };
 
 #endif
