@@ -1,3 +1,14 @@
+/**
+ * @file Server.cpp
+ * @author your name (you@domain.com)
+ * @brief 
+ * @version 0.1
+ * @date 2022-09-05
+ * 
+ * @copyright Copyright (c) 2022
+ * 
+ */
+
 #include "Server.h"
 #include "ServerStream.cpp"
 #include "User.cpp"
@@ -11,7 +22,7 @@
 #define REC_BLOCK 2048
 #define THREAD_NUM 10
 //class user;
-typedef ACE_Singleton<TaskThread,ACE_Thread_Mutex>TaskThreadPool;
+typedef ACE_Singleton<TaskThread,ACE_Thread_Mutex> TaskThreadPool;
 list<ServerStream*>g_StreamPool;
 
 Server::Server(int port,char* ip): m_Svr_addr(port,ip)
