@@ -148,8 +148,19 @@ int TaskThread::processCmd(ACE_SOCK_Stream Stream, string cmd)
             ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
         }
     }else if(cmd.substr(0, 4) == "RNFR"){
-        Stream.send("350 ",ACE_OS::strlen("350 "),0);
-        ACE_DEBUG((LM_DEBUG,"RNFR"));
+        if(this->isUserLoginValid(Stream) == -1){
+            return 0;
+        }
+        if(processRNFR(Stream, cmd) == -1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
+        }
+    }else if(cmd.substr(0, 4) == "RNTO"){
+        if(this->isUserLoginValid(Stream) == -1){
+            return 0;
+        }
+        if(processRNTO(Stream, cmd) == -1){
+            ACE_DEBUG((LM_DEBUG,"ERROR! process USER CMD\n"));
+        }
     }
     
     return 0;
@@ -655,6 +666,41 @@ int TaskThread::processMKD(ACE_SOCK_Stream &Stream, string &cmd)
     return 0;
 }
 
+int TaskThread::processRNFR(ACE_SOCK_Stream &Stream, string &cmd)
+{
+    User *currentUser = handlerToUser[Stream.get_handle()];
+    string dir = cmd.substr(5,cmd.size());
+    trim(dir);
+    if(dir[0] !='/'&&dir.size()>1){
+        dir = currentUser->getCurrentDir() + dir;
+    }
+    FILE *fp;
+    fp = ACE_OS::fopen(dir.c_str(), "r");
+    if (fp == nullptr){
+        Stream.send(RNFR_FAILED, ACE_OS::strlen(RNFR_FAILED), 0);
+        return 0;
+    }
+    currentUser->setRenamefrom(dir);
+    Stream.send(RNFR_CMD,ACE_OS::strlen(RNFR_CMD),0);
+    return 0;
+}
+
+int TaskThread::processRNTO(ACE_SOCK_Stream &Stream, string &cmd)
+{
+    User *currentUser = handlerToUser[Stream.get_handle()];
+    string dir = cmd.substr(5,cmd.size());
+    trim(dir);
+    if(dir[0] !='/'&&dir.size()>1){
+        dir = currentUser->getCurrentDir() + dir;
+    }
+    if (rename(currentUser->getRenameFrom().c_str(),dir.c_str()) < 0){
+        Stream.send(RNTO_FAILED,ACE_OS::strlen(RNTO_FAILED), 0);
+        return 0;
+    }
+    Stream.send(RENAME_SUCCESS, ACE_OS::strlen(RENAME_SUCCESS), 0);
+    return 0;
+}
+
 int TaskThread::processDELE(ACE_SOCK_Stream &Stream, string &cmd)
 {
     User *currentUser = handlerToUser[Stream.get_handle()];
@@ -663,18 +709,15 @@ int TaskThread::processDELE(ACE_SOCK_Stream &Stream, string &cmd)
     if(dir[0] != '/'){
         dir = currentUser->getCurrentDir() + dir;
     }
-    if(opendir(dir.c_str()) == NULL) //判断目录
-	{
-        Stream.send(DIR_NOT_FIND, ACE_OS::strlen(DIR_NOT_FIND), 0);
+    FILE *fp;
+    fp = ACE_OS::fopen(dir.c_str(), "r");
+    if (fp == nullptr){
+        Stream.send(DELETE_FAILE, ACE_OS::strlen(DELETE_FAILE), 0);
         return 0;
-	}
-    if(remove(dir.c_str())==0)
-    {
-        cout<<"删除成功"<<endl;        
     }
-    else
-    {
-        cout<<"删除失败"<<endl;        
+    if(remove(dir.c_str())!=0){
+        Stream.send(DELETE_FAILE, ACE_OS::strlen(DELETE_FAILE), 0);
+        return 0;
     }
     Stream.send(DELETE_SUCCESS, ACE_OS::strlen(DELETE_SUCCESS), 0);
     return 0;

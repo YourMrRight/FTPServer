@@ -1,5 +1,5 @@
-#ifndef FTP_MSG_H_
-#define FTP_MSG_H_
+#ifndef _FTP_MSG_H
+#define _FTP_MSG_H
 
 #pragma once
 
@@ -15,7 +15,7 @@
 #define SYST_CMD "Remote system type is UNIX.\n"//Using binary mode to transfer files.\r\n"
 #define USR_UNLOGIN "530 Please login with USER and PASS.\n"
 #define CWD_SUCCESS "250 Directory successfully changed.\n"
-#define DELETE_SUCCESS "250 Delete operation successful."
+#define DELETE_SUCCESS "250 Delete operation successful.\n"
 #define DIR_NOT_FIND "550 The system can not find the file specified.\n"
 #define OPEN_FILE_FAILED "425 File opening failed.\n"
 #define DATA_CONN_FAILED "425 Cannot open data connection.\n"
@@ -27,12 +27,19 @@
 #define PASV_CMD "227 start passive mode.\n"
 #define MkDIR_ERRROE "550 Create directory operation failed.\n"
 #define SIZE_CMD "213 ";
+#define RNFR_CMD "350 Ready for RNTO.\n"
+#define RNFR_FAILED "550 RNFR command failed.\n"
+#define RNTO_FAILED "553 RNFR command failed.\n"
+#define RENAME_SUCCESS "250 Rename successful.\n"
+#define DELETE_FAILE "550 Delete operation failed.\n"
+
+
 #define FILE_DATA_BLOCK 1024
 #define REC_BLOCK 2048
 #define BEGINPORT 10000
 #define ENDPORT 15000
 
-#define DEFAULT_DIR "/home/scutech"
+#define DEFAULT_DIR "/home/scutech/"
 #define ROOT_DIR "/"
 
 #define DEFAULT_IP "127,0,0,1"

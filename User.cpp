@@ -91,3 +91,12 @@ void User::setIP(string IP)
 {
 	this->ip = IP;
 }
+string User::getRenameFrom() const
+{
+	return rename_from_;
+}
+
+void User::setRenamefrom(string filename)
+{
+	this->rename_from_ = filename;
+}

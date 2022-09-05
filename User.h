@@ -17,7 +17,7 @@ private:
 	string usr_pwd_;
 	int port;
 	string ip;
-
+	string rename_from_;
 public:
 	User();
 	~User();
@@ -32,6 +32,8 @@ public:
 	void setPort(int p);
 	string getIP()const;
 	void setIP(string IP);
+	string getRenameFrom()const;
+	void setRenamefrom(string filename);
 };
 
 #endif
